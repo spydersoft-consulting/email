@@ -7,6 +7,7 @@ using Spydersoft.EmailApi;
 using Spydersoft.EmailApi.Infrastructure.Data;
 using Spydersoft.EmailApi.Resend;
 using Spydersoft.EmailApi.Services;
+using Spydersoft.EmailApi.Webhooks;
 using Spydersoft.Platform.Hosting.StartupExtensions;
 using Spydersoft.Platform.Hosting.Telemetry;
 
@@ -53,6 +54,7 @@ builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailO
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection(ResendOptions.SectionName));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ResendWebhookHandler>();
 
 if (string.Equals(builder.Configuration["Resend:Mode"], "fake", StringComparison.OrdinalIgnoreCase))
 {
