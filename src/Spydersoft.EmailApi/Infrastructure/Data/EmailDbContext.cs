@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Spydersoft.EmailApi.Infrastructure.Data.Entities;
 
@@ -16,11 +17,24 @@ public sealed class EmailDbContext(DbContextOptions<EmailDbContext> options) : D
             e.ToTable("email_messages");
             e.HasKey(m => m.Id);
             e.Property(m => m.Status).HasConversion<string>().HasMaxLength(32);
-            e.Property(m => m.To).HasColumnType("jsonb");
-            e.Property(m => m.Cc).HasColumnType("jsonb");
-            e.Property(m => m.Bcc).HasColumnType("jsonb");
-            e.Property(m => m.Tags).HasColumnType("jsonb");
-            e.Property(m => m.Attachments).HasColumnType("jsonb");
+            if (Database.IsNpgsql())
+            {
+                e.Property(m => m.To).HasColumnType("jsonb");
+                e.Property(m => m.Cc).HasColumnType("jsonb");
+                e.Property(m => m.Bcc).HasColumnType("jsonb");
+                e.Property(m => m.Tags).HasColumnType("jsonb");
+                e.Property(m => m.Attachments).HasColumnType("jsonb");
+            }
+            else
+            {
+                e.Property(m => m.Tags).HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null));
+                e.Property(m => m.Attachments).HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<AttachmentMeta>>(v, (JsonSerializerOptions?)null)!);
+            }
+
             e.HasIndex(m => m.ResendId);
             e.HasIndex(m => new { m.SenderClientId, m.CreatedAt });
             e.HasIndex(m => m.Status);

@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Spydersoft.EmailApi;
 using Spydersoft.EmailApi.Infrastructure.Data;
+using Spydersoft.EmailApi.Resend;
+using Spydersoft.EmailApi.Services;
 using Spydersoft.Platform.Hosting.StartupExtensions;
 using Spydersoft.Platform.Hosting.Telemetry;
 
@@ -44,6 +48,25 @@ builder.Services.AddAuthorizationBuilder()
 
 builder.Services.AddDbContext<EmailDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("email")));
+
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection(ResendOptions.SectionName));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+if (string.Equals(builder.Configuration["Resend:Mode"], "fake", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<IResendGateway, FakeResendGateway>();
+}
+else
+{
+    builder.Services.AddHttpClient<IResendGateway, ResendGateway>((sp, http) =>
+    {
+        var resend = sp.GetRequiredService<IOptions<ResendOptions>>().Value;
+        http.BaseAddress = new Uri(resend.BaseUrl);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", resend.ApiKey);
+    });
+}
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
