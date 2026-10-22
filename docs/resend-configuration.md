@@ -1,64 +1,64 @@
-# Resend Configuration — Per-Env Runbook
+# Resend Configuration — Runbook
 
-Two free Resend accounts, each with one verified domain:
+One Resend account with one verified domain, `mattgerega.com`, serves every environment. The
+existing key and domain are stored at `secrets-k8/resend` (`api-key`, `domain`).
 
-| Account | Domain | Backs |
-| --- | --- | --- |
-| nonproduction | `mattgerega.net` | test and stage |
-| production | `mattgerega.com` | production |
-
-The service forces every outgoing From address onto the environment's domain
-(`Email:SendingDomain`), so only the verified domain is ever used. Per-env default senders
-(`Email:DefaultFrom`) keep test and stage mail distinguishable:
+The service forces every outgoing From address onto `Email:SendingDomain`, so only the verified
+domain is ever used. Per-env default senders (`Email:DefaultFrom`) keep non-production mail
+distinguishable from production:
 
 | Env | `Email:SendingDomain` | `Email:DefaultFrom` |
 | --- | --- | --- |
-| test | `mattgerega.net` | `Spydersoft <test-noreply@mattgerega.net>` |
-| stage | `mattgerega.net` | `Spydersoft <stage-noreply@mattgerega.net>` |
+| test | `mattgerega.com` | `Spydersoft <test-noreply@mattgerega.com>` |
 | production | `mattgerega.com` | `Spydersoft <noreply@mattgerega.com>` |
+
+Because all environments share one account, they share its send quota and sender reputation —
+send only to Resend's simulator addresses from test.
 
 ---
 
-## 1. Verify the domain (once per account)
+## 1. Verify the domain (once)
 
-1. Resend dashboard → **Domains** → **Add Domain** → enter the domain for that account.
-2. Add the DNS records Resend lists to the domain's zone (typically a DKIM `TXT`/`CNAME`, an SPF
-   `TXT` and `MX` for the send subdomain, and optionally a DMARC `TXT`).
-3. Click **Verify** and wait for the status to go green.
+1. Resend dashboard → **Domains** → **Add Domain** → `mattgerega.com`.
+2. Add the DNS records Resend lists to the zone (typically a DKIM `TXT`/`CNAME`, an SPF `TXT` and
+   `MX` for the send subdomain, and optionally a DMARC `TXT`).
+3. Click **Verify** and wait for the status to go green. (Already done for the current key.)
 
-Record the exact records you added here, per domain, so the zone can be rebuilt:
+Record the exact records you added so the zone can be rebuilt:
 
-| Domain | Type | Name | Value |
-| --- | --- | --- | --- |
-| `mattgerega.net` | | | |
-| `mattgerega.com` | | | |
+| Type | Name | Value |
+| --- | --- | --- |
+| | | |
 
-## 2. Create an API key
+## 2. API key
 
-Resend → **API Keys** → create a key with **Sending access** limited to the verified domain.
+The key in `secrets-k8/resend.api-key` is reused by each environment. Copy it to the
+environment's path (the ExternalSecret reads `apiKey` from there):
 
-| Account | Store in Vault |
-| --- | --- |
-| nonproduction | `secrets-k8/email/test/resend.apiKey` and `secrets-k8/email/stage/resend.apiKey` (same key) |
-| production | `secrets-k8/email/production/resend.apiKey` |
+```bash
+vault kv put secrets-k8/email/<env>/resend \
+  apiKey="$(vault kv get -field=api-key secrets-k8/resend)" \
+  webhookSecret="<signing secret from step 3>"
+```
 
-The key is shown once; copy it straight into Vault.
+If you later create a dedicated sending-only key per environment, store it at the same path and
+leave `secrets-k8/resend` for other consumers.
 
-## 3. Create the webhook endpoint (per env, after its route is live)
+## 3. Webhook endpoint (per env, after its route is live)
 
 The endpoint URL must resolve, so create it only after the chart is deployed and
 `https://<host>/livez` responds.
 
-| Env | Account | Endpoint URL | Store signing secret in |
-| --- | --- | --- | --- |
-| test | nonproduction | `https://email.mattgerega.net/api/webhooks/resend` | `secrets-k8/email/test/resend.webhookSecret` |
-| stage | nonproduction | `https://email.mattgerega.org/api/webhooks/resend` | `secrets-k8/email/stage/resend.webhookSecret` |
-| production | production | `https://email.mattgerega.com/api/webhooks/resend` | `secrets-k8/email/production/resend.webhookSecret` |
+| Env | Endpoint URL | Store signing secret in |
+| --- | --- | --- |
+| test | `https://email.mattgerega.net/api/webhooks/resend` | `secrets-k8/email/test/resend.webhookSecret` |
+| production | `https://email.mattgerega.com/api/webhooks/resend` | `secrets-k8/email/production/resend.webhookSecret` |
 
 1. Resend → **Webhooks** → **Add Endpoint**, enter the URL.
 2. Subscribe to: `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`,
    `email.complained`, `email.opened`, `email.clicked`.
-3. Copy the **Signing Secret** (`whsec_...`) into Vault at the path above.
+3. Copy the **Signing Secret** (`whsec_...`) into Vault at the path above, keeping the existing
+   `apiKey` property (`vault kv patch` updates one property).
 4. Wait for the ExternalSecret to refresh (hourly) or restart the pod so the API picks it up.
 
 The endpoint is authenticated by the Svix signature only; requests with a bad signature or a
