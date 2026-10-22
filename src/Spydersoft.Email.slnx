@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Spydersoft.Email.AppHost/Spydersoft.Email.AppHost.csproj" />
+  <Project Path="Spydersoft.Email.Client.UnitTests/Spydersoft.Email.Client.UnitTests.csproj" />
+  <Project Path="Spydersoft.Email.Client/Spydersoft.Email.Client.csproj" />
+  <Project Path="Spydersoft.EmailApi.UnitTests/Spydersoft.EmailApi.UnitTests.csproj" />
+  <Project Path="Spydersoft.EmailApi/Spydersoft.EmailApi.csproj" />
+</Solution>

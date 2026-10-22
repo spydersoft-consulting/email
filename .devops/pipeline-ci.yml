@@ -1,0 +1,128 @@
+## Build Pipeline - builds the solution, publishes the email-api image, the email OCI chart,
+## and the Spydersoft.Email.Client NuGet package, all from one build number.
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      endpoint: spydersoft-gh
+      name: spydersoft-consulting/azure-devops-templates
+    - repository: helmfileconfig
+      type: github
+      endpoint: spydersoft-gh
+      name: spydersoft-consulting/platform-helm-config
+
+variables:
+  - group: nuget-spydersoft-github
+
+trigger:
+  tags:
+    include:
+      - "*"
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - README.md
+      - docs/*
+      - scripts/*
+
+pr:
+  branches:
+    include:
+      - main
+
+extends:
+  template: pipelines/build-multi-container/v1.yml@templates
+  parameters:
+    vmImage: ubuntu-latest
+    gitVersionSpec: "6.0.x"
+    netCoreVersion: "10.0.x"
+    externalFeedCredentials: SpydersoftGithub
+    nugetConfigPath: "$(Build.SourcesDirectory)/nuget.config"
+
+    buildProject: src/Spydersoft.Email.slnx
+
+    prebuildSteps:
+      - task: UseDotNet@2
+        displayName: Install .NET 8 SDK (net8.0 multi-targeted tests/pack)
+        inputs:
+          packageType: sdk
+          version: 8.0.x
+      - task: UseDotNet@2
+        displayName: Install .NET 9 SDK (net9.0 multi-targeted tests/pack)
+        inputs:
+          packageType: sdk
+          version: 9.0.x
+
+    projectsToPack: "**/*.csproj;!**/*.UnitTests.csproj;!**/*.AppHost.csproj;!**/Spydersoft.EmailApi.csproj"
+    externalPublishUrl: $(nuget-feed-url)
+    externalPublishApiKey: $(nuget-feed-api-key)
+
+    publishProjects:
+      - name: email_api
+        project: src/Spydersoft.EmailApi/Spydersoft.EmailApi.csproj
+        artifactName: emailApi
+
+    executeTests: true
+    testProjects: "src/**/*.UnitTests/*.csproj"
+
+    sonarProjectKey: spydersoft-consulting_email
+    sonarProjectName: Spydersoft.Email
+    useSonarCloud: true
+    sonarCloudOrganization: spydersoft-consulting
+    sonarEndpointName: sonarcloud-spydersoft
+    sonarExtraProperties: |
+      sonar.projectKey=spydersoft-consulting_email
+      sonar.test.inclusions=**/*.UnitTests/**
+      sonar.coverage.exclusions=**/*.UnitTests/**,**/*.AppHost/**,**/Generated/**
+      sonar.exclusions=**/Generated/**
+      sonar.scanner.scanAll=false
+
+    containerRegistryName: github-spydersoft-docker
+    dockerImages:
+      - name: email_api
+        dockerImageName: spydersoft-consulting/email-api
+        dockerFilePath: Dockerfile.api
+        artifactName: emailApi
+        artifactZipName: Spydersoft.EmailApi
+
+    helmCharts:
+      - name: email
+        chartPath: charts/email
+
+    helmfileRepoName: helmfileconfig
+    updateHelmConfigDependsOn:
+      - docker_publish
+      - chart_publish
+
+    # Three build shapes (same convention as audit/pitstop's pipeline-ci.yml):
+    #  - PR: build/test/sonar only, no publish, no helm-config update.
+    #  - main: beta build -> publish images+chart+NuGet packages, update
+    #    helm-config's test environment.
+    #  - anything else (a tag push): release build -> publish images+chart+
+    #    NuGet packages, also update helm-config's test environment.
+    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+      updateHelmConfig: false
+      buildAndPublishDockerImages: false
+      buildAndPublishHelmCharts: false
+      publishToNuget: false
+      executeSonar: true
+    ${{ elseif eq(variables['Build.SourceBranchName'], 'main') }}:
+      updateHelmConfig: true
+      buildAndPublishDockerImages: true
+      buildAndPublishHelmCharts: true
+      publishToNuget: true
+      executeSonar: true
+    ${{ else }}:
+      updateHelmConfig: true
+      buildAndPublishDockerImages: true
+      buildAndPublishHelmCharts: true
+      publishToNuget: true
+      executeSonar: false
+
+    # email_chart_version, not the generic chart_version -- platform-helm-config
+    # hosts multiple independently-versioned OCI-chart apps sharing one flat
+    # imageTags map per environment, so each app needs its own key to avoid
+    # one app's publish overwriting another's chart-version pin.
+    helmTagsCollection: "email_api=$(build.buildnumber),email_chart_version=$(build.buildnumber)"

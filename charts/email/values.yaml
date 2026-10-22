@@ -1,0 +1,81 @@
+defaultPodOptions:
+  imagePullSecrets:
+    - name: cr-spydersoft-github
+
+controllers:
+  main:
+    enabled: false
+  email-api:
+    enabled: true
+    type: deployment
+    replicas: 1
+    revisionHistoryLimit: 1
+    strategy: RollingUpdate
+    containers:
+      main:
+        image:
+          repository: ghcr.io/spydersoft-consulting/email-api
+          pullPolicy: IfNotPresent
+          tag: latest
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /livez
+                port: 8080
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 1
+              failureThreshold: 3
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /readyz
+                port: 8080
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 1
+              failureThreshold: 3
+
+service:
+  main:
+    enabled: false
+  email-api:
+    enabled: true
+    controller: email-api
+    nameOverride: email-api
+    primary: true
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        primary: true
+        port: 80
+        targetPort: 8080
+
+route:
+  main:
+    enabled: false
+  # Public route: the Resend webhook (/api/webhooks/resend) is called from outside the cluster.
+  email-api:
+    enabled: true
+    kind: HTTPRoute
+    parentRefs:
+      - name: main
+        namespace: envoy-gateway-system
+        group: gateway.networking.k8s.io
+        kind: Gateway
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backendRefs:
+          - identifier: email-api
+            port: 80
+
+env_name: dev

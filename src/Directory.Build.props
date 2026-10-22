@@ -1,0 +1,11 @@
+<Project>
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+		<Authors>Matt Gerega</Authors>
+		<Company>Spydersoft Consulting</Company>
+		<RepositoryUrl>https://github.com/spydersoft-consulting/email</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+</Project>

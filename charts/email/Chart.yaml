@@ -1,0 +1,14 @@
+apiVersion: v2
+name: email
+description: Spydersoft Email - API controller, published as an OCI chart.
+
+type: application
+
+version: 0.1.0
+
+appVersion: "0.0.0"
+
+dependencies:
+- name: common
+  version: 4.4.0
+  repository: https://bjw-s-labs.github.io/helm-charts
