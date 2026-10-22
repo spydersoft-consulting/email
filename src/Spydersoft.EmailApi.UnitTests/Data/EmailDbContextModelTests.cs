@@ -28,7 +28,7 @@ public sealed class EmailDbContextModelTests
         using var db = Create();
         var entity = db.Model.FindEntityType(typeof(EmailEventEntity))!;
 
-        var index = entity.GetIndexes().Single(i => i.Properties.Single().Name == nameof(EmailEventEntity.WebhookId));
+        var index = entity.GetIndexes().Single(i => i.Properties.Select(p => p.Name).SequenceEqual([nameof(EmailEventEntity.WebhookId)]));
 
         Assert.That(index.IsUnique, Is.True);
     }
