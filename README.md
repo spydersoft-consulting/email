@@ -4,7 +4,7 @@ Platform email service for Spydersoft applications. Wraps [Resend](https://resen
 
 See [../plans/email/overview.md](../plans/email/overview.md) for the design and [../plans/email/implementation-plan.md](../plans/email/implementation-plan.md) for the roadmap.
 
-**Status:** client, send/query API, persistence and webhook receiver are implemented and unit-tested; not yet run against a real Postgres or Resend, and the runbooks in `docs/` are stubs.
+**Status:** client, send/query API, persistence and webhook receiver are implemented and unit-tested; not yet run against a real Postgres or Resend. See `docs/` for the identity and Resend runbooks.
 
 ## Projects
 
