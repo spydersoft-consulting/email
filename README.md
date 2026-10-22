@@ -20,6 +20,8 @@ dotnet run --project src/Spydersoft.Email.AppHost
 
 Requires Docker. Starts PostgreSQL and the API with `Resend__Mode=fake`.
 
+`scripts/smoke-test.js` exercises a running API end to end (send, idempotency, query, signed webhooks). It needs `Auth__TestKey` and `Resend__WebhookSecret` set to the API's values and the API in the `Testing` environment.
+
 ## Consuming the Client
 
 ```csharp
