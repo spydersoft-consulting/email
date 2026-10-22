@@ -1,13 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using Microsoft.Extensions.Options;
 
 namespace Spydersoft.Email.Client;
 
-internal sealed class HttpEmailClient(HttpClient http) : IEmailClient
+internal sealed class HttpEmailClient(HttpClient http, IOptions<EmailClientOptions> options) : IEmailClient
 {
     public async Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
+        if (message.From is null && options.Value.DefaultFrom is { } defaultFrom)
+        {
+            message = message with { From = defaultFrom };
+        }
+
         HttpResponseMessage response;
         try
         {
