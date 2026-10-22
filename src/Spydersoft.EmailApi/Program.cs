@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Spydersoft.EmailApi;
+using Spydersoft.EmailApi.Infrastructure.Data;
 using Spydersoft.Platform.Hosting.StartupExtensions;
 using Spydersoft.Platform.Hosting.Telemetry;
 
@@ -40,10 +42,19 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.Read, p => p.RequireClaim("scope", AuthorizationPolicies.Read))
     .AddPolicy(AuthorizationPolicies.Send, p => p.RequireClaim("scope", AuthorizationPolicies.Send));
 
+builder.Services.AddDbContext<EmailDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("email")));
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<EmailDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
