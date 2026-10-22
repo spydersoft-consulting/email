@@ -13,11 +13,18 @@ public static class EmailServiceCollectionExtensions
             .Validate(o => !string.IsNullOrWhiteSpace(o.BaseUrl), "EmailClientOptions.BaseUrl is required.")
             .ValidateOnStart();
 
-        services.AddHttpClient<IEmailClient, HttpEmailClient>((sp, http) =>
-        {
-            var opts = sp.GetRequiredService<IOptions<EmailClientOptions>>().Value;
-            http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
-        });
+        services.AddHttpContextAccessor();
+        services.AddSingleton(TimeProvider.System);
+        services.AddHttpClient(EmailTokenProvider.HttpClientName);
+        services.AddSingleton<EmailTokenProvider>();
+        services.AddTransient<EmailClientAuthHandler>();
+
+        services.AddHttpClient<IEmailClient, HttpEmailClient>("email", (sp, http) =>
+            {
+                var opts = sp.GetRequiredService<IOptions<EmailClientOptions>>().Value;
+                http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            })
+            .AddHttpMessageHandler<EmailClientAuthHandler>();
 
         return services;
     }
