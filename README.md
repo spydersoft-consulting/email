@@ -4,7 +4,7 @@ Platform email service for Spydersoft applications. Wraps [Resend](https://resen
 
 See [../plans/email/overview.md](../plans/email/overview.md) for the design and [../plans/email/implementation-plan.md](../plans/email/implementation-plan.md) for the roadmap.
 
-**Status:** client, send/query API, persistence and webhook receiver are implemented and unit-tested; not yet run against a real Postgres or Resend, and the runbooks in `docs/` are stubs.
+**Status:** client, send/query API, persistence and webhook receiver are implemented and unit-tested; not yet run against a real Postgres or Resend. See `docs/` for the identity and Resend runbooks.
 
 ## Projects
 
@@ -19,6 +19,8 @@ dotnet run --project src/Spydersoft.Email.AppHost
 ```
 
 Requires Docker. Starts PostgreSQL and the API with `Resend__Mode=fake`.
+
+`scripts/smoke-test.js` exercises a running API end to end (send, idempotency, query, signed webhooks). It needs `Auth__TestKey` and `Resend__WebhookSecret` set to the API's values and the API in the `Testing` environment.
 
 ## Consuming the Client
 

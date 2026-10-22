@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Spydersoft.EmailApi.Infrastructure.Data.Entities;
 
 namespace Spydersoft.EmailApi.Infrastructure.Data;
@@ -17,6 +18,21 @@ public sealed class EmailDbContext(DbContextOptions<EmailDbContext> options) : D
             e.ToTable("email_messages");
             e.HasKey(m => m.Id);
             e.Property(m => m.Status).HasConversion<string>().HasMaxLength(32);
+            e.Property(m => m.Tags).HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null),
+                new ValueComparer<Dictionary<string, string>?>(
+                    (a, b) => JsonSerializer.Serialize(a, (JsonSerializerOptions?)null) == JsonSerializer.Serialize(b, (JsonSerializerOptions?)null),
+                    v => v == null ? 0 : JsonSerializer.Serialize(v, (JsonSerializerOptions?)null).GetHashCode(),
+                    v => v == null ? null : new Dictionary<string, string>(v)));
+            e.Property(m => m.Attachments).HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<AttachmentMeta>>(v, (JsonSerializerOptions?)null)!,
+                new ValueComparer<List<AttachmentMeta>>(
+                    (a, b) => a!.SequenceEqual(b!),
+                    v => v.Aggregate(0, (h, x) => HashCode.Combine(h, x)),
+                    v => v.ToList()));
+
             if (Database.IsNpgsql())
             {
                 e.Property(m => m.To).HasColumnType("jsonb");
@@ -24,15 +40,6 @@ public sealed class EmailDbContext(DbContextOptions<EmailDbContext> options) : D
                 e.Property(m => m.Bcc).HasColumnType("jsonb");
                 e.Property(m => m.Tags).HasColumnType("jsonb");
                 e.Property(m => m.Attachments).HasColumnType("jsonb");
-            }
-            else
-            {
-                e.Property(m => m.Tags).HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v, (JsonSerializerOptions?)null));
-                e.Property(m => m.Attachments).HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<List<AttachmentMeta>>(v, (JsonSerializerOptions?)null)!);
             }
 
             e.HasIndex(m => m.ResendId);

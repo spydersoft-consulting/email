@@ -9,6 +9,9 @@ var dashboardOtlp = builder.Configuration["DOTNET_DASHBOARD_OTLP_ENDPOINT_URL"]
 var api = builder.AddProject<Projects.Spydersoft_EmailApi>("email-api")
     .WithReference(emailDb)
     .WithEnvironment("Resend__Mode", "fake")
+    .WithEnvironment("Resend__WebhookSecret", "whsec_bG9jYWwtZGV2LXdlYmhvb2stc2VjcmV0")
+    .WithEnvironment("Email__SendingDomain", "mattgerega.net")
+    .WithEnvironment("Email__DefaultFrom", "Spydersoft <local-noreply@mattgerega.net>")
     .WaitFor(postgres);
 
 foreach (var (typeKey, endpointKey) in new[]
