@@ -16,6 +16,8 @@ public sealed partial class EmailService(
     TimeProvider time,
     ILogger<EmailService> logger) : IEmailService
 {
+    internal const string EnvironmentTagName = "environment";
+
     private readonly EmailOptions _options = options.Value;
 
     public async Task<SendOutcome> SendAsync(EmailMessage message, SenderIdentity sender, CancellationToken cancellationToken = default)
@@ -33,6 +35,7 @@ public sealed partial class EmailService(
         }
 
         var from = ResolveFrom(message.From);
+        var tags = BuildTags(message.Tags);
         var entity = new EmailMessageEntity
         {
             Id = Guid.NewGuid(),
@@ -44,7 +47,7 @@ public sealed partial class EmailService(
             Cc = [.. message.Cc],
             Bcc = [.. message.Bcc],
             Subject = message.Subject,
-            Tags = message.Tags?.ToDictionary(t => t.Key, t => t.Value),
+            Tags = tags,
             Attachments = [.. message.Attachments.Select(a => new AttachmentMeta(a.Filename, a.ContentType, Base64Size(a.ContentBase64)))],
             CreatedAt = time.GetUtcNow(),
             CorrelationId = message.CorrelationId,
@@ -53,7 +56,7 @@ public sealed partial class EmailService(
 
         var request = new ResendSendRequest(
             from, message.To, message.Cc, message.Bcc, message.ReplyTo, message.Subject,
-            message.Html, message.Text, message.Tags, message.Attachments, message.IdempotencyKey);
+            message.Html, message.Text, tags, message.Attachments, message.IdempotencyKey);
 
         int? failureStatus = null;
         string? failureDetail = null;
@@ -109,6 +112,18 @@ public sealed partial class EmailService(
         {
             throw new EmailValidationException("Message exceeds the maximum size.", tooLarge: true);
         }
+    }
+
+    private Dictionary<string, string>? BuildTags(IReadOnlyDictionary<string, string>? requested)
+    {
+        if (string.IsNullOrWhiteSpace(_options.EnvironmentTag))
+        {
+            return requested?.ToDictionary(t => t.Key, t => t.Value);
+        }
+
+        var tags = requested?.ToDictionary(t => t.Key, t => t.Value) ?? [];
+        tags[EnvironmentTagName] = _options.EnvironmentTag;
+        return tags;
     }
 
     private string ResolveFrom(string? requested)

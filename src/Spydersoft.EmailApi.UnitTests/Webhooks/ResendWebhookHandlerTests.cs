@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Spydersoft.Email.Client;
 using Spydersoft.EmailApi.Infrastructure.Data;
 using Spydersoft.EmailApi.Infrastructure.Data.Entities;
@@ -19,7 +20,7 @@ public sealed class ResendWebhookHandlerTests
     {
         _db = new EmailDbContext(new DbContextOptionsBuilder<EmailDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        _handler = new ResendWebhookHandler(_db, TimeProvider.System, NullLogger<ResendWebhookHandler>.Instance);
+        _handler = CreateHandler(null);
 
         _messageId = Guid.NewGuid();
         _db.Messages.Add(new EmailMessageEntity
@@ -37,6 +38,15 @@ public sealed class ResendWebhookHandlerTests
 
     [TearDown]
     public void TearDown() => _db.Dispose();
+
+    private ResendWebhookHandler CreateHandler(string? environmentTag) => new(
+        _db,
+        Options.Create(new EmailOptions { EnvironmentTag = environmentTag }),
+        TimeProvider.System,
+        NullLogger<ResendWebhookHandler>.Instance);
+
+    private static string TaggedPayload(string type, string environment, string emailId = "re_1") =>
+        $"{{\"type\":\"{type}\",\"created_at\":\"2026-06-02T14:00:00Z\",\"data\":{{\"email_id\":\"{emailId}\",\"tags\":{{\"environment\":\"{environment}\"}}}}}}";
 
     private static string Payload(string type, string emailId = "re_1") =>
         $"{{\"type\":\"{type}\",\"created_at\":\"2026-06-02T14:00:00Z\",\"data\":{{\"email_id\":\"{emailId}\"}}}}";
@@ -116,5 +126,42 @@ public sealed class ResendWebhookHandlerTests
     public async Task MalformedPayload_IsInvalid()
     {
         Assert.That(await _handler.HandleAsync("msg_1", "not json", default), Is.EqualTo(WebhookResult.Invalid));
+    }
+
+    [Test]
+    public async Task TestDeployment_AppliesEventWithMatchingTag()
+    {
+        var result = await CreateHandler("test").HandleAsync("msg_1", TaggedPayload("email.delivered", "test"), default);
+
+        Assert.That(result, Is.EqualTo(WebhookResult.Applied));
+        Assert.That((await _db.Messages.SingleAsync()).Status, Is.EqualTo(EmailStatus.Delivered));
+    }
+
+    [Test]
+    public async Task TestDeployment_IgnoresUntaggedEvent()
+    {
+        var result = await CreateHandler("test").HandleAsync("msg_1", Payload("email.delivered"), default);
+
+        Assert.That(result, Is.EqualTo(WebhookResult.Ignored));
+        Assert.That(_db.Events.Count(), Is.Zero);
+    }
+
+    [Test]
+    public async Task ProductionDeployment_IgnoresTestTaggedEvent()
+    {
+        var result = await CreateHandler(null).HandleAsync("msg_1", TaggedPayload("email.delivered", "test"), default);
+
+        Assert.That(result, Is.EqualTo(WebhookResult.Ignored));
+        Assert.That((await _db.Messages.SingleAsync()).Status, Is.EqualTo(EmailStatus.Sent));
+    }
+
+    [Test]
+    public async Task TagsAsNameValueList_AreRecognised()
+    {
+        const string payload = "{\"type\":\"email.delivered\",\"data\":{\"email_id\":\"re_1\",\"tags\":[{\"name\":\"environment\",\"value\":\"test\"}]}}";
+
+        var result = await CreateHandler("test").HandleAsync("msg_1", payload, default);
+
+        Assert.That(result, Is.EqualTo(WebhookResult.Applied));
     }
 }

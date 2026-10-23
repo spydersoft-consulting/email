@@ -156,4 +156,29 @@ public sealed class EmailServiceTests
             Assert.That(row.Error, Is.EqualTo("invalid"));
         }
     }
+
+    [Test]
+    public async Task SendAsync_NoEnvironmentTag_LeavesTagsUntouched()
+    {
+        await _service.SendAsync(Message(), Sender);
+
+        Assert.That(_gateway.Sent.Single().Tags, Is.Null);
+    }
+
+    [Test]
+    public async Task SendAsync_WithEnvironmentTag_TagsRequestAndRow()
+    {
+        var service = new EmailService(
+            _db, _gateway,
+            Options.Create(new EmailOptions { SendingDomain = "mattgerega.net", DefaultFrom = "a@mattgerega.net", EnvironmentTag = "test" }),
+            TimeProvider.System, NullLogger<EmailService>.Instance);
+
+        await service.SendAsync(Message(), Sender);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_gateway.Sent.Single().Tags!["environment"], Is.EqualTo("test"));
+            Assert.That((await _db.Messages.SingleAsync()).Tags!["environment"], Is.EqualTo("test"));
+        }
+    }
 }

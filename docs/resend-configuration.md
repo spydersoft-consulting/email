@@ -61,6 +61,10 @@ The endpoint URL must resolve, so create it only after the chart is deployed and
    `apiKey` property (`vault kv patch` updates one property).
 4. Wait for the ExternalSecret to refresh (hourly) or restart the pod so the API picks it up.
 
+## Sharing one account across environments
+
+Resend sends every event to every webhook endpoint in the account, so test and production both receive each other's events. To tell them apart, the test deployment sets `Email:EnvironmentTag=test`: it tags outgoing mail with `environment=test` and handles only webhook events carrying that tag. Production leaves the setting empty and handles only events with no `environment` tag. Events for the other environment are acknowledged with 200 and ignored.
+
 The endpoint is authenticated by the Svix signature only; requests with a bad signature or a
 timestamp more than five minutes old get `401`.
 
