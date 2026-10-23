@@ -22,7 +22,7 @@ public static class EmailServiceCollectionExtensions
         services.AddHttpClient<IEmailClient, HttpEmailClient>("email", (sp, http) =>
             {
                 var opts = sp.GetRequiredService<IOptions<EmailClientOptions>>().Value;
-                http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+                http.BaseAddress = new Uri(opts.BaseUrl);
             })
             .AddHttpMessageHandler<EmailClientAuthHandler>();
 

@@ -47,13 +47,13 @@ public sealed class ResendWebhookHandlerTests
         var result = await _handler.HandleAsync("msg_1", Payload("email.delivered"), default);
 
         var message = await _db.Messages.SingleAsync();
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo(WebhookResult.Applied));
             Assert.That(message.Status, Is.EqualTo(EmailStatus.Delivered));
             Assert.That(message.LastEventAt, Is.Not.Null);
             Assert.That(_db.Events.Count(), Is.EqualTo(1));
-        });
+        }
     }
 
     [Test]
@@ -63,11 +63,11 @@ public sealed class ResendWebhookHandlerTests
 
         var result = await _handler.HandleAsync("msg_1", Payload("email.delivered"), default);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo(WebhookResult.Duplicate));
             Assert.That(_db.Events.Count(), Is.EqualTo(1));
-        });
+        }
     }
 
     [Test]
@@ -93,11 +93,11 @@ public sealed class ResendWebhookHandlerTests
     {
         await _handler.HandleAsync("msg_1", Payload("email.opened"), default);
 
-        Assert.Multiple(async () =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That((await _db.Messages.SingleAsync()).Status, Is.EqualTo(EmailStatus.Sent));
             Assert.That(_db.Events.Count(), Is.EqualTo(1));
-        });
+        }
     }
 
     [Test]
@@ -105,11 +105,11 @@ public sealed class ResendWebhookHandlerTests
     {
         var result = await _handler.HandleAsync("msg_1", Payload("email.delivered", "re_other"), default);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo(WebhookResult.UnknownMessage));
-            Assert.That(_db.Events.Count(), Is.EqualTo(0));
-        });
+            Assert.That(_db.Events.Count(), Is.Zero);
+        }
     }
 
     [Test]

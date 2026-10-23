@@ -46,15 +46,12 @@ public static class SvixSignatureVerifier
                 continue;
             }
 
-            try
+            var candidate = new byte[expected.Length];
+            if (Convert.TryFromBase64String(pieces[1], candidate, out var written)
+                && written == expected.Length
+                && CryptographicOperations.FixedTimeEquals(expected, candidate))
             {
-                if (CryptographicOperations.FixedTimeEquals(expected, Convert.FromBase64String(pieces[1])))
-                {
-                    return true;
-                }
-            }
-            catch (FormatException)
-            {
+                return true;
             }
         }
 

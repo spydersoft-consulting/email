@@ -99,5 +99,3 @@ await app.RunAsync();
 static bool IsHealthCheckPath(string? path) =>
     string.Equals(path, "/livez", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(path, "/readyz", StringComparison.OrdinalIgnoreCase);
-
-public partial class Program;
