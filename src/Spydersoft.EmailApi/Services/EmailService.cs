@@ -76,9 +76,9 @@ public sealed partial class EmailService(
         db.Messages.Add(entity);
         await db.SaveChangesAsync(cancellationToken);
 
-        LogSent(
-            entity.Id, entity.ResendId, sender.ClientId, message.To.Count + message.Cc.Count + message.Bcc.Count,
-            entity.Status, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        var recipientCount = message.To.Count + message.Cc.Count + message.Bcc.Count;
+        var elapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        LogSent(entity.Id, entity.ResendId, sender.ClientId, recipientCount, entity.Status, elapsedMs);
 
         return new SendOutcome(ToResult(entity), Existing: false, failureStatus, failureDetail);
     }
