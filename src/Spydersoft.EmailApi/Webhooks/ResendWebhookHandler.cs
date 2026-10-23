@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Spydersoft.Email.Client;
 using Spydersoft.EmailApi.Infrastructure.Data;
 using Spydersoft.EmailApi.Infrastructure.Data.Entities;
+using Spydersoft.EmailApi.Services;
 
 namespace Spydersoft.EmailApi.Webhooks;
 
@@ -12,10 +14,15 @@ public enum WebhookResult
     Applied,
     Duplicate,
     UnknownMessage,
+    Ignored,
     Invalid,
 }
 
-public sealed partial class ResendWebhookHandler(EmailDbContext db, TimeProvider time, ILogger<ResendWebhookHandler> logger)
+public sealed partial class ResendWebhookHandler(
+    EmailDbContext db,
+    IOptions<EmailOptions> options,
+    TimeProvider time,
+    ILogger<ResendWebhookHandler> logger)
 {
     public async Task<WebhookResult> HandleAsync(string webhookId, string body, CancellationToken cancellationToken)
     {
@@ -39,6 +46,11 @@ public sealed partial class ResendWebhookHandler(EmailDbContext db, TimeProvider
         if (type is null || resendId is null)
         {
             return WebhookResult.Invalid;
+        }
+
+        if (!BelongsToThisEnvironment(payload))
+        {
+            return WebhookResult.Ignored;
         }
 
         if (await db.Events.AnyAsync(e => e.WebhookId == webhookId, cancellationToken))
@@ -84,6 +96,31 @@ public sealed partial class ResendWebhookHandler(EmailDbContext db, TimeProvider
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Webhook {EventType} applied to Resend id {ResendId}")]
     private partial void LogApplied(string eventType, string resendId);
+
+    // One Resend account serves every environment and sends each event to every endpoint, so an event is
+    // handled only when its environment tag matches this deployment (no tag means production).
+    private bool BelongsToThisEnvironment(JsonNode payload)
+    {
+        var expected = string.IsNullOrWhiteSpace(options.Value.EnvironmentTag) ? null : options.Value.EnvironmentTag;
+        return string.Equals(ReadEnvironmentTag(payload), expected, StringComparison.Ordinal);
+    }
+
+    private static string? ReadEnvironmentTag(JsonNode payload)
+    {
+        var tags = payload["data"]?["tags"];
+        if (tags is JsonObject map)
+        {
+            return map[EmailService.EnvironmentTagName]?.ToString();
+        }
+
+        if (tags is JsonArray list)
+        {
+            return list.OfType<JsonObject>()
+                .FirstOrDefault(t => t["name"]?.ToString() == EmailService.EnvironmentTagName)?["value"]?.ToString();
+        }
+
+        return null;
+    }
 
     internal static EmailStatus? MapStatus(string eventType) => eventType switch
     {
