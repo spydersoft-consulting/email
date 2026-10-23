@@ -17,7 +17,7 @@ internal sealed class HttpEmailClient(HttpClient http, IOptions<EmailClientOptio
         HttpResponseMessage response;
         try
         {
-            response = await http.PostAsJsonAsync("api/emails", message, cancellationToken);
+            response = await http.PostAsJsonAsync("/api/emails", message, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -38,7 +38,7 @@ internal sealed class HttpEmailClient(HttpClient http, IOptions<EmailClientOptio
 
     public async Task<EmailStatusView?> GetStatusAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        using var response = await http.GetAsync($"api/emails/{id}", cancellationToken);
+        using var response = await http.GetAsync($"/api/emails/{id}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
@@ -50,13 +50,13 @@ internal sealed class HttpEmailClient(HttpClient http, IOptions<EmailClientOptio
 
     public async Task<IReadOnlyList<EmailEventView>> GetEventsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var events = await http.GetFromJsonAsync<List<EmailEventView>>($"api/emails/{id}/events", cancellationToken);
+        var events = await http.GetFromJsonAsync<List<EmailEventView>>($"/api/emails/{id}/events", cancellationToken);
         return events ?? [];
     }
 
     public async Task<EmailPage> SearchAsync(EmailQuery query, CancellationToken cancellationToken = default)
     {
-        var page = await http.GetFromJsonAsync<EmailPage>($"api/emails{BuildQueryString(query)}", cancellationToken);
+        var page = await http.GetFromJsonAsync<EmailPage>($"/api/emails{BuildQueryString(query)}", cancellationToken);
         return page ?? new EmailPage([], 0, query.Skip, query.Limit);
     }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Spydersoft.Email.Client;
@@ -14,7 +15,7 @@ public enum WebhookResult
     Invalid,
 }
 
-public sealed class ResendWebhookHandler(EmailDbContext db, TimeProvider time, ILogger<ResendWebhookHandler> logger)
+public sealed partial class ResendWebhookHandler(EmailDbContext db, TimeProvider time, ILogger<ResendWebhookHandler> logger)
 {
     public async Task<WebhookResult> HandleAsync(string webhookId, string body, CancellationToken cancellationToken)
     {
@@ -28,8 +29,13 @@ public sealed class ResendWebhookHandler(EmailDbContext db, TimeProvider time, I
             return WebhookResult.Invalid;
         }
 
-        var type = payload?["type"]?.GetValue<string>();
-        var resendId = payload?["data"]?["email_id"]?.GetValue<string>();
+        if (payload is null)
+        {
+            return WebhookResult.Invalid;
+        }
+
+        var type = payload["type"]?.GetValue<string>();
+        var resendId = payload["data"]?["email_id"]?.GetValue<string>();
         if (type is null || resendId is null)
         {
             return WebhookResult.Invalid;
@@ -43,11 +49,11 @@ public sealed class ResendWebhookHandler(EmailDbContext db, TimeProvider time, I
         var message = await db.Messages.FirstOrDefaultAsync(m => m.ResendId == resendId, cancellationToken);
         if (message is null)
         {
-            logger.LogWarning("Webhook {EventType} for unknown Resend id {ResendId}", type, resendId);
+            LogUnknownMessage(type, resendId);
             return WebhookResult.UnknownMessage;
         }
 
-        var occurredAt = DateTimeOffset.TryParse(payload?["created_at"]?.ToString(), out var parsed) ? parsed : time.GetUtcNow();
+        var occurredAt = DateTimeOffset.TryParse(payload["created_at"]?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : time.GetUtcNow();
         db.Events.Add(new EmailEventEntity
         {
             MessageId = message.Id,
@@ -64,14 +70,20 @@ public sealed class ResendWebhookHandler(EmailDbContext db, TimeProvider time, I
             message.Status = next;
             if (next is EmailStatus.Bounced or EmailStatus.Complained)
             {
-                message.Error = payload?["data"]?["bounce"]?["message"]?.ToString();
+                message.Error = payload["data"]?["bounce"]?["message"]?.ToString();
             }
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Webhook {EventType} applied to Resend id {ResendId}", type, resendId);
+        LogApplied(type, resendId);
         return WebhookResult.Applied;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook {EventType} for unknown Resend id {ResendId}")]
+    private partial void LogUnknownMessage(string eventType, string resendId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Webhook {EventType} applied to Resend id {ResendId}")]
+    private partial void LogApplied(string eventType, string resendId);
 
     internal static EmailStatus? MapStatus(string eventType) => eventType switch
     {

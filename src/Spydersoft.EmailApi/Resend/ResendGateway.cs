@@ -78,5 +78,5 @@ public sealed class ResendGateway(HttpClient http) : IResendGateway
     }
 
     private static JsonArray ToArray(IEnumerable<string> values) =>
-        new(values.Select(v => (JsonNode)JsonValue.Create(v)!).ToArray());
+        new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
 }

@@ -61,13 +61,13 @@ public sealed class EmailServiceTests
         var outcome = await _service.SendAsync(Message(), Sender);
 
         var row = await _db.Messages.SingleAsync();
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(outcome.Result.Status, Is.EqualTo(EmailStatus.Sent));
             Assert.That(row.ResendId, Is.EqualTo(outcome.Result.ResendId));
             Assert.That(row.SenderClientId, Is.EqualTo("identity-server"));
             Assert.That(_gateway.Sent, Has.Count.EqualTo(1));
-        });
+        }
     }
 
     [Test]
@@ -122,12 +122,12 @@ public sealed class EmailServiceTests
         var first = await _service.SendAsync(Message(b => b.IdempotencyKey = "k1"), Sender);
         var second = await _service.SendAsync(Message(b => b.IdempotencyKey = "k1"), Sender);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(second.Existing, Is.True);
             Assert.That(second.Result.Id, Is.EqualTo(first.Result.Id));
             Assert.That(_gateway.Sent, Has.Count.EqualTo(1));
-        });
+        }
     }
 
     [Test]
@@ -149,11 +149,11 @@ public sealed class EmailServiceTests
         var outcome = await Create(gateway).SendAsync(Message(), Sender);
 
         var row = await _db.Messages.SingleAsync();
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(outcome.FailureStatusCode, Is.EqualTo(422));
             Assert.That(row.Status, Is.EqualTo(EmailStatus.Failed));
             Assert.That(row.Error, Is.EqualTo("invalid"));
-        });
+        }
     }
 }

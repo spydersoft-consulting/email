@@ -34,6 +34,8 @@ public sealed class HttpEmailClientTests
             Is.EqualTo("Spydersoft <noreply@example.com>"));
     }
 
+    private static readonly string[] DeliveredEventTypes = ["email.delivered"];
+
     private static readonly EmailMessage Message = new() { To = ["a@example.com"], Subject = "Hi", Text = "Hello" };
 
     [Test]
@@ -44,12 +46,12 @@ public sealed class HttpEmailClientTests
 
         var result = await client.SendAsync(Message);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo(expected));
             Assert.That(handler.Requests[0].Method, Is.EqualTo(HttpMethod.Post));
             Assert.That(handler.Requests[0].RequestUri!.AbsolutePath, Is.EqualTo("/api/emails"));
-        });
+        }
     }
 
     [Test]
@@ -59,11 +61,11 @@ public sealed class HttpEmailClientTests
 
         var ex = Assert.ThrowsAsync<EmailSendException>(() => client.SendAsync(Message));
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(ex!.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
             Assert.That(ex.Detail, Is.EqualTo("bad"));
-        });
+        }
     }
 
     [Test]
@@ -82,7 +84,7 @@ public sealed class HttpEmailClientTests
 
         var result = await client.GetEventsAsync(Guid.NewGuid());
 
-        Assert.That(result.Select(e => e.EventType), Is.EqualTo(new[] { "email.delivered" }));
+        Assert.That(result.Select(e => e.EventType), Is.EqualTo(DeliveredEventTypes));
     }
 
     [Test]
@@ -93,11 +95,11 @@ public sealed class HttpEmailClientTests
 
         var result = await client.SearchAsync(new EmailQuery { SenderClientId = "identity-server", Status = EmailStatus.Delivered, Skip = 5, Limit = 10 });
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Skip, Is.EqualTo(5));
             Assert.That(handler.Requests[0].RequestUri!.Query,
                 Is.EqualTo("?senderClientId=identity-server&status=Delivered&skip=5&limit=10"));
-        });
+        }
     }
 }

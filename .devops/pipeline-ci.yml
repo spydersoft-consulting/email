@@ -75,8 +75,8 @@ extends:
     sonarExtraProperties: |
       sonar.projectKey=spydersoft-consulting_email
       sonar.test.inclusions=**/*.UnitTests/**
-      sonar.coverage.exclusions=**/*.UnitTests/**,**/*.AppHost/**,**/Generated/**
-      sonar.exclusions=**/Generated/**
+      sonar.coverage.exclusions=**/*.UnitTests/**,**/*.AppHost/**,**/Generated/**,**/Migrations/**
+      sonar.exclusions=**/Generated/**,**/Migrations/**
       sonar.scanner.scanAll=false
 
     containerRegistryName: github-spydersoft-docker

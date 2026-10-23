@@ -52,12 +52,12 @@ public sealed class EmailClientAuthHandlerTests
         time.Now = time.Now.AddHours(2);
         var third = await provider.GetTokenAsync(default);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(second, Is.EqualTo(first));
             Assert.That(third, Is.Not.EqualTo(first));
             Assert.That(tokenHandler.Requests, Has.Count.EqualTo(2));
-        });
+        }
     }
 
     [Test]
@@ -69,8 +69,11 @@ public sealed class EmailClientAuthHandlerTests
 
         await client.GetAsync("api/emails");
 
-        Assert.That(inner.Requests[0].Headers.Authorization!.Scheme, Is.EqualTo("Bearer"));
-        Assert.That(inner.Requests[0].Headers.Authorization!.Parameter, Does.StartWith("tok-"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(inner.Requests[0].Headers.Authorization!.Scheme, Is.EqualTo("Bearer"));
+            Assert.That(inner.Requests[0].Headers.Authorization!.Parameter, Does.StartWith("tok-"));
+        }
     }
 
     [Test]

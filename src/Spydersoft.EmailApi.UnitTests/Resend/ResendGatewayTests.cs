@@ -36,14 +36,14 @@ public sealed class ResendGatewayTests
         var result = await Create(handler).SendAsync(Request("key-1"));
 
         var json = JsonNode.Parse(handler.RequestBody!)!;
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Id, Is.EqualTo("re_123"));
             Assert.That(handler.Request!.RequestUri!.AbsolutePath, Is.EqualTo("/emails"));
             Assert.That(handler.Request.Headers.GetValues("Idempotency-Key").Single(), Is.EqualTo("key-1"));
             Assert.That(json["to"]![0]!.GetValue<string>(), Is.EqualTo("a@example.com"));
             Assert.That(json["tags"]![0]!["name"]!.GetValue<string>(), Is.EqualTo("app"));
-        });
+        }
     }
 
     [Test]
